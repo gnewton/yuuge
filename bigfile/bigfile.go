@@ -1,11 +1,14 @@
 package bigfile
 
 import (
+	"fmt"
 	"io"
 	"strconv"
+	"sync"
 )
 
-type BigFile struct {
+//
+type Manager struct {
 	fileCounter  int64
 	dir          string
 	baseFileName string
@@ -26,8 +29,8 @@ type Index struct {
 	filename string
 }
 
-func New(dir string, baseFileName string, numWriters int) (*BigFile, error) {
-	bf := BigFile{
+func New(dir string, baseFileName string, numWriters int) (*Manager, error) {
+	mgr := Manager{
 		dir:          dir,
 		baseFileName: baseFileName,
 		fileCounter:  0,
@@ -37,14 +40,25 @@ func New(dir string, baseFileName string, numWriters int) (*BigFile, error) {
 
 	// init and start FileWriter
 
-	return &bf, nil
+	go func() {
+		for i := range mgr.index {
+			fmt.Println(i.key, i.offset, i.length)
+		}
+	}()
+
+	return &mgr, nil
 }
 
-func (bf *BigFile) Add(r io.Reader, key string) error {
+func (mgr *Manager) Add(key string, r io.Reader) error {
 	return nil
 }
 
-func (bf *BigFile) NextFileName() string {
-	bf.fileCounter += 1
-	return bf.baseFileName + "_" + strconv.FormatInt(bf.fileCounter, 10)
+var lock sync.Mutex
+
+func (mgr *Manager) NextFileName() string {
+	lock.Lock()
+	mgr.fileCounter += 1
+	val := mgr.baseFileName + "_" + strconv.FormatInt(mgr.fileCounter, 10)
+	lock.Unlock()
+	return val
 }

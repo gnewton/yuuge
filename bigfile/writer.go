@@ -8,13 +8,13 @@ import (
 )
 
 type FileWriter struct {
-	bf     *BigFile
+	mgr    *Manager
 	offset int64
 }
 
-func NewWriter(bf *BigFile) {
+func NewWriter(mgr *Manager) {
 	w := FileWriter{
-		bf: bf,
+		mgr: mgr,
 	}
 
 	go w.WriteFiles()
@@ -22,7 +22,7 @@ func NewWriter(bf *BigFile) {
 
 func (fw *FileWriter) WriteFiles() {
 	for {
-		filename := fw.bf.NextFileName()
+		filename := fw.mgr.NextFileName()
 		fi, err := os.Open(filename)
 		if err != nil {
 			log.Println(err)
@@ -38,19 +38,21 @@ func (fw *FileWriter) WriteFiles() {
 
 		w := bufio.NewWriter(fi)
 
-		for info := range fw.bf.streamInfo {
+		// Get next stream and write it out to the bigfile
+		for info := range fw.mgr.streamInfo {
 			n, err := io.Copy(w, info.r)
 			if err != nil {
 				log.Println(err)
 				return
 			}
+			// Index info (start offset + length)
 			index := Index{
 				key:      info.key,
 				offset:   fw.offset,
 				length:   n,
 				filename: filename,
 			}
-			fw.bf.index <- &index
+			fw.mgr.index <- &index
 			fw.offset += n
 		}
 
