@@ -1,8 +1,12 @@
 package bigfile
 
 import (
+	"bytes"
+	crand "crypto/rand"
+	"io"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"os"
 	"testing"
 )
@@ -10,7 +14,7 @@ import (
 func TestCreate(t *testing.T) {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	var mgr *Manager = nil
-	err := newWriter(mgr)
+	_, err := newWriter(mgr)
 	if err == nil {
 		t.Log("Should not return nil")
 		t.Fail()
@@ -29,7 +33,7 @@ func TestStart(t *testing.T) {
 		//mgr.Close()
 	}()
 
-	err = newWriter(mgr)
+	_, err = newWriter(mgr)
 	if err != nil {
 		t.Log(err)
 		t.Fail()
@@ -50,12 +54,27 @@ func TestWriteFiles(t *testing.T) {
 		}
 	}()
 
-	err = newWriter(mgr)
+	_, err = newWriter(mgr)
 	if err != nil {
 		t.Log(err)
 		t.Fail()
 	}
 
+	total := 0
+	for i := 0; i < 10; i++ {
+		r, n, err := NewRandomReader()
+		if err != nil {
+			t.Log(err)
+			t.Fail()
+		}
+		log.Println(n)
+		si := StreamInfo{r, "foo"}
+		mgr.streamInfo <- &si
+		total += n
+	}
+
+	mgr.Close()
+	log.Println("total:", total)
 }
 
 func makeManager() (*Manager, string, error) {
@@ -70,4 +89,16 @@ func makeManager() (*Manager, string, error) {
 		return nil, "", err
 	}
 	return mgr, dir, nil
+}
+
+func NewRandomReader() (io.Reader, int, error) {
+	n := 4096 + rand.Intn(50000000)
+	b := make([]byte, n)
+	_, err := crand.Read(b)
+	if err != nil {
+		log.Println(err)
+		return nil, -1, err
+	}
+
+	return bytes.NewReader(b), n, nil
 }

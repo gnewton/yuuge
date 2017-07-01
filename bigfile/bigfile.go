@@ -15,6 +15,7 @@ type Manager struct {
 	dir          string
 	baseFileName string
 	streamInfo   chan *StreamInfo
+	doneChan     chan bool
 	index        chan *Index
 	writer       *FileWriter
 }
@@ -44,6 +45,7 @@ func NewManager(dir string, baseFileName string, numWriters int) (*Manager, erro
 		fileCounter:  0,
 		streamInfo:   make(chan *StreamInfo, numWriters),
 		index:        make(chan *Index),
+		doneChan:     make(chan bool),
 	}
 
 	// init and start FileWriter
@@ -57,8 +59,11 @@ func NewManager(dir string, baseFileName string, numWriters int) (*Manager, erro
 }
 
 func (mgr *Manager) Close() {
+
 	close(mgr.streamInfo)
+	<-mgr.doneChan
 	if mgr.writer != nil {
+		log.Println("Manager closing")
 		mgr.writer.close()
 	}
 }
