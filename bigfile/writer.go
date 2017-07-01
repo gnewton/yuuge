@@ -2,25 +2,37 @@ package bigfile
 
 import (
 	"bufio"
+	"errors"
 	"io"
 	"log"
 	"os"
 )
 
 type FileWriter struct {
-	mgr    *Manager
-	offset int64
+	mgr        *Manager
+	offset     int64
+	openFile   *os.File
+	openWriter io.Writer
 }
 
-func NewWriter(mgr *Manager) {
+func newWriter(mgr *Manager) error {
+	if mgr == nil {
+		return errors.New("Manager is nil")
+	}
+
 	w := FileWriter{
 		mgr: mgr,
 	}
 
-	go w.WriteFiles()
+	go w.writeFiles()
+	return nil
 }
 
-func (fw *FileWriter) WriteFiles() {
+func (fw *FileWriter) close() {
+	close(fw.mgr.index)
+}
+
+func (fw *FileWriter) writeFiles() {
 	for {
 		filename := fw.mgr.NextFileName()
 		fi, err := os.Open(filename)
@@ -28,6 +40,7 @@ func (fw *FileWriter) WriteFiles() {
 			log.Println(err)
 			return
 		}
+		fw.openFile = fi
 		// close fi on exit and check for its returned error
 		defer func() {
 			if err := fi.Close(); err != nil {
@@ -37,6 +50,7 @@ func (fw *FileWriter) WriteFiles() {
 		}()
 
 		w := bufio.NewWriter(fi)
+		fw.openWriter = w
 
 		// Get next stream and write it out to the bigfile
 		for info := range fw.mgr.streamInfo {

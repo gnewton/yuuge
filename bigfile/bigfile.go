@@ -1,8 +1,10 @@
 package bigfile
 
 import (
+	"errors"
 	"fmt"
 	"io"
+	"log"
 	"strconv"
 	"sync"
 )
@@ -14,6 +16,7 @@ type Manager struct {
 	baseFileName string
 	streamInfo   chan *StreamInfo
 	index        chan *Index
+	writer       *FileWriter
 }
 
 // Info about the stream coming in
@@ -29,7 +32,12 @@ type Index struct {
 	filename string
 }
 
-func New(dir string, baseFileName string, numWriters int) (*Manager, error) {
+func NewManager(dir string, baseFileName string, numWriters int) (*Manager, error) {
+
+	if len(dir) == 0 || len(baseFileName) == 0 || numWriters < 1 {
+		return nil, errors.New("dir" + dir + " or baseFilename are nil:" + baseFileName + " or numWriters is < 1")
+	}
+
 	mgr := Manager{
 		dir:          dir,
 		baseFileName: baseFileName,
@@ -39,7 +47,6 @@ func New(dir string, baseFileName string, numWriters int) (*Manager, error) {
 	}
 
 	// init and start FileWriter
-
 	go func() {
 		for i := range mgr.index {
 			fmt.Println(i.key, i.offset, i.length)
@@ -49,7 +56,20 @@ func New(dir string, baseFileName string, numWriters int) (*Manager, error) {
 	return &mgr, nil
 }
 
-func (mgr *Manager) Add(key string, r io.Reader) error {
+func (mgr *Manager) Close() {
+	close(mgr.streamInfo)
+	if mgr.writer != nil {
+		mgr.writer.close()
+	}
+}
+
+func (mgr *Manager) Add(key []byte, r io.Reader) error {
+	if key == nil {
+		return errors.New("key cannot be nil")
+	}
+	if len(key) == 0 {
+		return errors.New("key cannot have zero length")
+	}
 	return nil
 }
 
@@ -59,6 +79,7 @@ func (mgr *Manager) NextFileName() string {
 	lock.Lock()
 	mgr.fileCounter += 1
 	val := mgr.baseFileName + "_" + strconv.FormatInt(mgr.fileCounter, 10)
+	log.Println("New file", val)
 	lock.Unlock()
 	return val
 }
