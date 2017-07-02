@@ -32,7 +32,7 @@ func newWriter(mgr *Manager) (*FileWriter, error) {
 }
 
 func (fw *FileWriter) close() {
-	close(fw.mgr.index)
+
 }
 
 func (fw *FileWriter) writeFiles() {
@@ -43,13 +43,6 @@ func (fw *FileWriter) writeFiles() {
 		return
 	}
 	fw.openFile = fi
-	// close fi on exit and check for its returned error
-	defer func() {
-		if err := fi.Close(); err != nil {
-			log.Println(err)
-			return
-		}
-	}()
 
 	w := bufio.NewWriter(fi)
 	fw.openWriter = w
@@ -66,14 +59,14 @@ func (fw *FileWriter) writeFiles() {
 			return
 		}
 		total += n
-		// Index info (start offset + length)
-		// index := Index{
-		// 	key:      info.key,
-		// 	offset:   fw.offset,
-		// 	length:   n,
-		// 	filename: filename,
-		// }
-		//fw.mgr.index <- &index
+		//Index info (start offset + length)
+		index := Index{
+			key:      info.key,
+			offset:   fw.offset,
+			length:   n,
+			filename: filename,
+		}
+		fw.mgr.index <- &index
 		fw.offset += n
 		fmt.Printf("% x", h.Sum(nil))
 		fmt.Println("-----n:", n)
@@ -81,10 +74,7 @@ func (fw *FileWriter) writeFiles() {
 	}
 	w.Flush()
 	fw.openFile.Close()
-
-	fmt.Println("-----total:", total)
-
-	log.Fatal("-----total:", total)
+	fmt.Println("mmmmmm-----total:", total)
 
 	fw.mgr.doneChan <- true
 }

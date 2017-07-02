@@ -23,6 +23,28 @@ func TestCreate(t *testing.T) {
 
 func TestStart(t *testing.T) {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	_, _ = makeWriter(t)
+
+}
+
+func TestWriteFiles(t *testing.T) {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	mgr, _ := makeWriter(t)
+	writeRandomFiles(mgr, t)
+	log.Println("-----end")
+	mgr.Close()
+}
+
+func TestWriteReadVerifyFiles(t *testing.T) {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	mgr, _ := makeWriter(t)
+	writeRandomFiles(mgr, t)
+	mgr.Close()
+}
+
+//////////////// HELPERS ////////////////
+
+func makeWriter(t *testing.T) (*Manager, *FileWriter) {
 	mgr, dir, err := makeManager()
 	if err != nil || mgr == nil || err != nil {
 		t.Log(err)
@@ -33,35 +55,17 @@ func TestStart(t *testing.T) {
 		//mgr.Close()
 	}()
 
-	_, err = newWriter(mgr)
+	writer, err := newWriter(mgr)
 	if err != nil {
 		t.Log(err)
 		t.Fail()
 	}
+	return mgr, writer
 }
 
-func TestWriteFiles(t *testing.T) {
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	mgr, dir, err := makeManager()
-	if err != nil || mgr == nil || err != nil {
-		t.Log(err)
-		t.Fail()
-	}
-	defer func() {
-		os.RemoveAll(dir) // clean up
-		if mgr != nil {
-			mgr.Close()
-		}
-	}()
-
-	_, err = newWriter(mgr)
-	if err != nil {
-		t.Log(err)
-		t.Fail()
-	}
-
+func writeRandomFiles(mgr *Manager, t *testing.T) {
 	total := 0
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 1000; i++ {
 		r, n, err := NewRandomReader()
 		if err != nil {
 			t.Log(err)
@@ -73,8 +77,7 @@ func TestWriteFiles(t *testing.T) {
 		total += n
 	}
 
-	mgr.Close()
-	log.Println("total:", total)
+	log.Println("--------------==========total:", total)
 }
 
 func makeManager() (*Manager, string, error) {
@@ -92,7 +95,7 @@ func makeManager() (*Manager, string, error) {
 }
 
 func NewRandomReader() (io.Reader, int, error) {
-	n := 4096 + rand.Intn(50000000)
+	n := 4096 + rand.Intn(50001)
 	b := make([]byte, n)
 	_, err := crand.Read(b)
 	if err != nil {

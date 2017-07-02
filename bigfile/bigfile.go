@@ -11,13 +11,14 @@ import (
 
 //
 type Manager struct {
-	fileCounter  int64
-	dir          string
-	baseFileName string
-	streamInfo   chan *StreamInfo
-	doneChan     chan bool
-	index        chan *Index
-	writer       *FileWriter
+	fileCounter   int64
+	dir           string
+	baseFileName  string
+	streamInfo    chan *StreamInfo
+	doneChan      chan bool
+	indexDoneChan chan bool
+	index         chan *Index
+	writer        *FileWriter
 }
 
 // Info about the stream coming in
@@ -40,28 +41,33 @@ func NewManager(dir string, baseFileName string, numWriters int) (*Manager, erro
 	}
 
 	mgr := Manager{
-		dir:          dir,
-		baseFileName: baseFileName,
-		fileCounter:  0,
-		streamInfo:   make(chan *StreamInfo, numWriters),
-		index:        make(chan *Index),
-		doneChan:     make(chan bool),
+		dir:           dir,
+		baseFileName:  baseFileName,
+		fileCounter:   0,
+		streamInfo:    make(chan *StreamInfo, numWriters),
+		index:         make(chan *Index),
+		doneChan:      make(chan bool),
+		indexDoneChan: make(chan bool),
 	}
 
-	// init and start FileWriter
 	go func() {
+		log.Println("Start index")
 		for i := range mgr.index {
-			fmt.Println(i.key, i.offset, i.length)
+			fmt.Println("index", i.key, i.offset, i.length)
 		}
+		log.Println("End index")
+		mgr.indexDoneChan <- true
 	}()
 
 	return &mgr, nil
 }
 
 func (mgr *Manager) Close() {
-
 	close(mgr.streamInfo)
 	<-mgr.doneChan
+	close(mgr.index)
+	<-mgr.indexDoneChan
+
 	if mgr.writer != nil {
 		log.Println("Manager closing")
 		mgr.writer.close()
