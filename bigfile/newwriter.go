@@ -13,7 +13,6 @@ type Writer2 struct {
 	filename           string
 	offset             int64
 	length             int64
-	dir                string
 	outfilenamesSource chan string
 	segmentsSink       chan []*Segment
 	maxFileSize        int64
@@ -26,11 +25,10 @@ type Segment struct {
 	length   int64
 }
 
-func NewWriter(dir string, outfilenames chan string, segments chan []*Segment, maxFileSize int64) (io.Writer, error) {
+func NewWriter(outfilenames chan string, segments chan []*Segment, maxFileSize int64) (io.Writer, error) {
 	w := Writer2{
 		offset:             0,
 		length:             0,
-		dir:                dir,
 		outfilenamesSource: outfilenames,
 		segmentsSink:       segments,
 		maxFileSize:        maxFileSize,
@@ -41,34 +39,47 @@ func NewWriter(dir string, outfilenames chan string, segments chan []*Segment, m
 		log.Println(err)
 		return nil, err
 	}
-	w.reset()
+	//w.reset()
 	return w, nil
 }
 
 func (w Writer2) Write(p []byte) (n int, err error) {
-	if w.offset+int64(len(p)) > w.maxFileSize {
-		w.close()
-		w.open()
+	if w.offset+w.length+int64(len(p)) > w.maxFileSize {
+		log.Println("BBBBBBBBBBIIIIIIIIIGGGGGGG")
+		err := w.close()
+		if err != nil {
+			log.Println(err)
+			return -1, err
+		}
 		w.sendSegments()
+
+		err = w.open()
+		if err != nil {
+			log.Println(err)
+			return -1, err
+		}
+
 		w.reset()
 
 	}
 
 	n, err = w.writer.Write(p)
 	if err == nil {
-		w.offset = w.offset + int64(n)
+		w.length = w.length + int64(n)
+		log.Println("********************", w.length)
 	}
 	return n, err
 }
 
 func (w *Writer2) sendSegments() {
+	log.Printf("mmmmm %+v\n", w.segments[0])
 	w.segmentsSink <- w.segments
 	w.segmentsSink = nil
 }
 
 // Call when there is a new file to write
 func (w *Writer2) reset() {
-	w.segments = make([]*Segment, 1)
+	w.segments = make([]*Segment, 0)
 	segment := Segment{
 		filename: w.filename,
 		offset:   w.offset,
@@ -79,6 +90,13 @@ func (w *Writer2) reset() {
 
 // Closes the present writer and underlying file
 func (w *Writer2) close() error {
+	log.Println("===", w.filename, w.offset, w.length)
+	segment := Segment{
+		filename: w.filename,
+		offset:   w.offset,
+		length:   w.length,
+	}
+	w.segments = append(w.segments, &segment)
 	err := w.writer.Flush()
 	if err != nil {
 		log.Println(err)
@@ -94,15 +112,16 @@ func (w *Writer2) close() error {
 		log.Println(err)
 		return err
 	}
+	w.offset = w.offset + w.length
+	w.length = 0
 	return nil
 }
 
 func (w *Writer2) open() error {
-	filename := <-w.outfilenamesSource
-	fullpath := w.dir + string(os.PathSeparator) + filename
-
+	w.filename = <-w.outfilenamesSource
+	log.Println("Opening:", w.filename)
 	var err error
-	w.file, err = os.Create(fullpath)
+	w.file, err = os.Create(w.filename)
 	if err != nil {
 		log.Println(err)
 		return err
