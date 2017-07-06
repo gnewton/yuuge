@@ -2,7 +2,7 @@ package bigfile
 
 import (
 	"bufio"
-	"io"
+	//	"io"
 	"log"
 	"os"
 )
@@ -25,7 +25,7 @@ type Segment struct {
 	length   int64
 }
 
-func NewWriter(outfilenames chan string, segments chan []*Segment, maxFileSize int64) (io.Writer, error) {
+func NewWriter(outfilenames chan string, segments chan []*Segment, maxFileSize int64) (*Writer2, error) {
 	w := Writer2{
 		offset:             0,
 		length:             0,
@@ -40,10 +40,10 @@ func NewWriter(outfilenames chan string, segments chan []*Segment, maxFileSize i
 		return nil, err
 	}
 	//w.reset()
-	return w, nil
+	return &w, nil
 }
 
-func (w Writer2) Write(p []byte) (n int, err error) {
+func (w *Writer2) Write(p []byte) (n int, err error) {
 	if w.offset+w.length+int64(len(p)) > w.maxFileSize {
 		log.Println("BBBBBBBBBBIIIIIIIIIGGGGGGG")
 		err := w.close()

@@ -40,11 +40,7 @@ func TestW2(t *testing.T) {
 	}
 	log.Println(n)
 
-	w2, ok := w.(Writer2)
-	if ok {
-		z := &w2
-		z.close()
-		z.sendSegments()
+	w.close()
+	w.sendSegments()
 
-	}
 }
